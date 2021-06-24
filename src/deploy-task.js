@@ -99,7 +99,7 @@ function chooseSmallerFileAndModifyContentType(compressedFile, originalFile, met
                     updatedMetadata: metadata
                 });
             } else {
-                metadata.contentEncoding = 'gzip';
+                metadata.contentEncoding = 'br';
                 deferred.resolve({
                     zippedTmpFile: compressedFile,
                     fileToUpload: compressedFile,
@@ -112,25 +112,23 @@ function chooseSmallerFileAndModifyContentType(compressedFile, originalFile, met
     return deferred.promise;
 }
 
-function gzipFile(source) {
+function brotliCompressFile(source) {
     var tempFile;
     var deferred = Q.defer();
-    var gzip = zlib.createGzip({
-        level: 9 // maximum compression
-    });
+    var brotliCompress = zlib.createBrotliCompress();
     var inp;
     var out;
-    gzip.on('error', function (err) {
+    brotliCompress.on('error', function (err) {
         deferred.reject(err);
     });
 
     inp = fs.createReadStream(source);
-    tempFile = source + '.zip';
+    tempFile = source + '.br';
     out = fs.createWriteStream(tempFile);
     out.on('close', function () {
         deferred.resolve(tempFile);
     });
-    inp.pipe(gzip).pipe(out);
+    inp.pipe(brotliCompress).pipe(out);
     return deferred.promise;
 }
 
@@ -196,7 +194,7 @@ module.exports = function deploy(opt, files, loggerCallback, cb) {
         metadata.contentType = mime.getType(sourceFile);
         if (options.zip) {
             createFolderAndClearPromise.then(function () {
-                return gzipFile(sourceFile)
+                return brotliCompressFile(sourceFile)
             }).then(function (tmpFile) {
                 return chooseSmallerFileAndModifyContentType(tmpFile, sourceFile, metadata);
             }).then(function (res) {
